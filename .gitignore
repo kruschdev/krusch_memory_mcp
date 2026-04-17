@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+hivemind_memory_data/
+*hivemind_memory_data/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  hivemind_memory_db:
+    image: ankane/pgvector:latest
+    container_name: hivemind_memory_pgvector
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hivemind_memory
+    ports:
+      - "5441:5432"
+    volumes:
+      - hivemind_memory_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    restart: unless-stopped
+
+volumes:
+  hivemind_memory_data:
