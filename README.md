@@ -12,6 +12,15 @@ A persistent, local-first semantic memory MCP server for IDEs, featuring dual SQ
 ![Ollama](https://img.shields.io/badge/Ollama-Local_Inference-blue.svg)
 ![DB](https://img.shields.io/badge/Database-SQLite%20%7C%20Postgres-lightgrey.svg)
 
+## 🧠 Why Krusch?
+
+In the crowded landscape of MCP memory servers, Krusch occupies a unique pragmatic sweet spot:
+1. **Exponential Temporal Decay:** Most memory servers ignore recency, returning a 6-month-old architectural decision with the same confidence as one made yesterday. Krusch mathematically decays older vectors.
+2. **Local-First Purity:** No cloud APIs. It uses Ollama with `nomic-embed-text` for 100% private, on-device vectorization.
+3. **Dual Database Architecture:** Zero-config SQLite out of the box for solo developers, with an instant failover to `pgvector` (PostgreSQL) for high-throughput autonomous swarms. 
+
+*(Note on Decay in Practice: A memory's raw semantic relevance score drops by approximately 26% after 30 days of inactivity, ensuring your agent always prefers the freshest project realities.)*
+
 ## ⚡ Quick Start
 
 You **must** have [Ollama](https://ollama.com/) running with the `nomic-embed-text` model pulled:
@@ -158,6 +167,14 @@ See the [docs/advanced-topics.md](docs/advanced-topics.md) file for:
 - Migrating from SQLite to Postgres.
 - Swapping Embedding Models.
 - How Temporal Decay works.
+
+## 🗺️ Roadmap
+
+Krusch is actively evolving. Our current short-term roadmap includes:
+- **`delete_memory` / `update_memory`:** Precise CRUD operations for agents to prune invalid assumptions.
+- **Memory Consolidation Tool:** An automated summarization utility to prevent vector DB bloat over time.
+- **Export/Import via JSON:** Easy human review and migration of memory states.
+- **Metadata Filtering:** Enhanced search by date range, specific tags, or confidence scores.
 
 ## 🧪 Testing
 

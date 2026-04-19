@@ -26,7 +26,9 @@
     "llm",
     "sqlite",
     "postgres",
-    "pgvector"
+    "pgvector",
+    "local-first",
+    "ollama"
   ],
   "author": "kruschdev",
   "license": "MIT",
