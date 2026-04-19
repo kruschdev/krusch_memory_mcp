@@ -1,5 +1,9 @@
 # Krusch Memory MCP
 
+<p align="center">
+  <img src="assets/banner.png" alt="Krusch Memory MCP Banner" width="100%">
+</p>
+
 A persistent, local-first Model Context Protocol (MCP) server that provides your IDE AI assistants (like Claude Desktop or Cursor) with long-term, semantic memory. Instead of your agent forgetting previous bugs, lessons, or project outcomes when you close the editor, it retrieves them using fast vector embeddings.
 
 [![npm version](https://badge.fury.io/js/krusch-memory-mcp.svg)](https://badge.fury.io/js/krusch-memory-mcp)
