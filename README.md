@@ -129,7 +129,7 @@ Krusch Memory offers two modes out of the box, controlled via the `DB_MODE` envi
 |---------|-------------------|--------------------------|
 | **Best For** | Solo developers, lightweight setups. | Enterprise, high-volume swarms logging every action. |
 | **Dependencies** | None (Built-in to node module). | Requires `pgvector` (Docker Compose provided). |
-| **Speed** | 1-5ms (for up to ~10k vectors). | Native HNSW C-index (instant at 100k+ vectors). |
+| **Speed** | Highly optimized 1-5ms (for up to ~10k vectors). | Native HNSW C-index utilizing a CTE to preserve time-decay math (instant at 100k+ vectors). |
 | **Setup** | Zero config. | Requires database connection string. |
 
 *(For instructions on migrating or configuring Postgres, see our [Advanced Topics Guide](docs/advanced-topics.md)).*
