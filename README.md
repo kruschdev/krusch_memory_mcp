@@ -45,7 +45,25 @@ This will spin up a temporary in-memory database, insert a mock memory, and retr
 }
 ```
 
-**4. Restart Claude Desktop.** That's it! 
+**4. Add to Headless Agents (OpenClaw / Hermes):**
+If you are running autonomous AI swarms, you can plug the MCP directly into their configuration files (e.g., `~/.openclaw/mcp_client_config.json`):
+```json
+{
+  "mcpServers": {
+    "krusch-memory": {
+      "command": "krusch-memory",
+      "args": [],
+      "env": {
+        "DB_MODE": "postgres",
+        "OLLAMA_URL": "http://localhost:11434"
+      }
+    }
+  }
+}
+```
+*(Note: For high-throughput agent swarms, we highly recommend setting `DB_MODE` to `postgres` rather than the default `sqlite`.)*
+
+**5. Restart your Agent / Claude Desktop.** That's it!
 
 ---
 
