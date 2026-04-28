@@ -36,6 +36,11 @@ let sqliteDb = null;
 async function initDb() {
   if (DB_MODE === 'postgres') {
     pgPool = new Pool({ connectionString: PG_URL });
+    try {
+      await pgPool.query(`ALTER TABLE krusch_memory ADD COLUMN project VARCHAR(255)`);
+    } catch (e) {
+      // Ignore if column already exists
+    }
     console.error(`[ide-memory-mcp] Connected to PostgreSQL at ${PG_URL}`);
   } else {
     sqliteDb = await open({
@@ -57,6 +62,11 @@ async function initDb() {
     // Safe schema migration for older sqlite files
     try {
       await sqliteDb.exec(`ALTER TABLE krusch_memory ADD COLUMN tags TEXT`);
+    } catch (e) {
+      // Ignore if column already exists
+    }
+    try {
+      await sqliteDb.exec(`ALTER TABLE krusch_memory ADD COLUMN project TEXT`);
     } catch (e) {
       // Ignore if column already exists
     }
@@ -151,6 +161,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
+            project: { type: "string", description: "Optional. The name of the current project (e.g., 't3code-dbos'). Helps prevent cross-project memory confusion." },
             category: { type: "string", enum: ['priorities', 'bugs', 'outcomes', 'lessons', 'activity'] },
             content: { type: "string" },
             tags: { type: "array", items: { type: "string" }, description: "Optional tags. If omitted and AUTO_TAG is true, tags will be generated automatically." }
@@ -172,6 +183,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
+            active_project: { type: "string", description: "Optional. The name of the current project. Memories from this project will receive a slight relevance boost." },
             category: { type: "string", enum: ['priorities', 'bugs', 'outcomes', 'lessons', 'activity'] },
             query: { type: "string" },
             limit: { type: "number", default: 3 }
@@ -189,7 +201,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   
   try {
     if (request.params.name === "add_memory") {
-      const { category, content, tags } = args;
+      const { category, content, tags, project } = args;
       if (!category || !content) throw new McpError(ErrorCode.InvalidParams, "Missing params");
 
       const embeddingArray = await embedText(content);
@@ -206,24 +218,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const embeddingStr = `[${embeddingArray.join(',')}]`;
           await client.query(`
-            INSERT INTO krusch_memory (category, content, embedding, tags)
-            VALUES ($1, $2, $3::vector, $4)
-          `, [category, content, embeddingStr, finalTags]);
+            INSERT INTO krusch_memory (project, category, content, embedding, tags)
+            VALUES ($1, $2, $3, $4::vector, $5)
+          `, [project || null, category, content, embeddingStr, finalTags]);
         } finally {
           client.release();
         }
       } else {
         await sqliteDb.run(`
-          INSERT INTO krusch_memory (category, content, embedding, tags)
-          VALUES (?, ?, ?, ?)
-        `, [category, content, JSON.stringify(embeddingArray), finalTags]);
+          INSERT INTO krusch_memory (project, category, content, embedding, tags)
+          VALUES (?, ?, ?, ?, ?)
+        `, [project || null, category, content, JSON.stringify(embeddingArray), finalTags]);
       }
 
       console.error(`[Krusch Memory] ✅ Successfully stored memory.`);
       return { content: [{ type: "text", text: `[Krusch Memory] ✅ Successfully saved memory to category: ${category}` }] };
 
     } else if (request.params.name === "search_memory") {
-      const { category, query: searchQuery, limit = 3 } = args;
+      const { category, query: searchQuery, limit = 3, active_project } = args;
       if (!category || !searchQuery) throw new McpError(ErrorCode.InvalidParams, "Missing params");
 
       console.error(`[Krusch Memory] 🔍 Searching category '${category}' for: "${searchQuery}"...`);
@@ -237,35 +249,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const embeddingStr = `[${embeddingArray.join(',')}]`;
           const res = await client.query(`
             WITH semantic_matches AS (
-              SELECT content, tags, created_at, embedding <=> $1::vector as distance
+              SELECT project, content, tags, created_at, embedding <=> $1::vector as distance
               FROM krusch_memory
               WHERE category = $2
               ORDER BY embedding <=> $1::vector
               LIMIT 100
             )
             SELECT 
+              project,
               content, 
               tags, 
               created_at,
-              (1 - distance) * exp(-$4::float * EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at))/86400) as similarity
+              ((1 - distance) + CASE WHEN project = $5 THEN 0.1 ELSE 0 END) * exp(-$4::float * EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at))/86400) as similarity
             FROM semantic_matches
             ORDER BY similarity DESC
             LIMIT $3
-          `, [embeddingStr, category, limit, DECAY_RATE]);
+          `, [embeddingStr, category, limit, DECAY_RATE, active_project || null]);
           results = res.rows;
         } finally {
           client.release();
         }
       } else {
-        const rows = await sqliteDb.all(`SELECT content, tags, created_at, embedding FROM krusch_memory WHERE category = ?`, [category]);
+        const rows = await sqliteDb.all(`SELECT project, content, tags, created_at, embedding FROM krusch_memory WHERE category = ?`, [category]);
         const now = new Date();
         const scoredRows = rows.map(r => {
           const dbVec = JSON.parse(r.embedding);
           const createdAt = new Date(r.created_at);
           const ageInDays = (now - createdAt) / (1000 * 60 * 60 * 24);
-          const baseSimilarity = cosineSimilarity(embeddingArray, dbVec);
+          const baseSimilarity = cosineSimilarity(embeddingArray, dbVec) + (active_project && r.project === active_project ? 0.1 : 0);
           const similarity = baseSimilarity * Math.exp(-DECAY_RATE * ageInDays);
           return {
+            project: r.project,
             content: r.content,
             tags: r.tags,
             created_at: r.created_at,
@@ -287,7 +301,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           try { tagsStr = ` [Tags: ${JSON.parse(r.tags).join(', ')}]`; } catch(e) {}
         }
         const dateStr = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : 'unknown';
-        output += `\n--- Match (Score: ${Number(r.similarity).toFixed(2)}) | Date: ${dateStr}${tagsStr} ---\n${r.content}\n`;
+        const projectStr = r.project ? ` | Project: ${r.project}` : '';
+        output += `\n--- Match (Score: ${Number(r.similarity).toFixed(2)}) | Date: ${dateStr}${projectStr}${tagsStr} ---\n${r.content}\n`;
       }
       return { content: [{ type: "text", text: output }] };
 
