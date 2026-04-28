@@ -18,6 +18,7 @@ In the crowded landscape of MCP memory servers, Krusch occupies a unique pragmat
 1. **Exponential Temporal Decay:** Most memory servers ignore recency, returning a 6-month-old architectural decision with the same confidence as one made yesterday. Krusch mathematically decays older vectors.
 2. **Local-First Purity:** No cloud APIs. It uses Ollama with `nomic-embed-text` for 100% private, on-device vectorization.
 3. **Dual Database Architecture:** Zero-config SQLite out of the box for solo developers, with an instant failover to `pgvector` (PostgreSQL) for high-throughput autonomous swarms. 
+4. **Soft Project Separation:** Prevent your AI agents from hallucinating cross-project bug fixes. Optionally tag memories by `project`, and Krusch will dynamically boost relevance for the agent's current active project while still explicitly labeling the context origin.
 
 *(Note on Decay in Practice: A memory's raw semantic relevance score drops by approximately 26% after 30 days of inactivity, ensuring your agent always prefers the freshest project realities.)*
 
@@ -98,6 +99,11 @@ To effectively use Krusch Memory, simply speak to your IDE agent normally, instr
 
 ### How Does it Handle Similar Memories?
 If you add multiple slightly different memories over time, the MCP returns the **Top 3** highest cosine-similarity matches. Because Krusch includes **Exponential Temporal Decay**, if you have two very similar memories, the *newer* one will have a slightly higher score, preventing your agent from hallucinating based on outdated facts.
+
+### Soft Project Separation
+If you are managing multiple repositories, Krusch helps prevent cross-contamination of ideas. When your agent adds a memory, it can specify the `project` property. Later, when calling `search_memory` using `active_project`, Krusch does two things:
+1. **Context Boosting:** It applies a mathematical similarity boost to any memory matching the active project, ensuring project-specific fixes float above global advice.
+2. **Explicit Labeling:** The memory returned to the agent is explicitly labeled (e.g., `| Project: signet`), ensuring the LLM understands exactly which repository the historical context belongs to.
 
 ---
 
